@@ -1,1 +1,5 @@
-from .onebatch import one_batch_pam
+from .onebatchpam import OneBatchPAM
+
+__all__ = [
+    "OneBatchPAM"
+]
