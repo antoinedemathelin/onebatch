@@ -9,7 +9,7 @@ class BuildExtInplace(_build_ext):
         self.inplace = 1  # Enable in-place build
 
 setup(
-    name="onebatchpam",
+    name="onebatch",
     version="0.1.0",
     description="OneBatchPAM",
     author="Antoine de Mathelin",
