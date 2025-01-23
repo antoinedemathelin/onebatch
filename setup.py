@@ -18,7 +18,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/your_username/your_repository",
     packages=find_packages(),
-    ext_modules = cythonize("onebatchpam/pam.pyx", annotate=False),
+    ext_modules = cythonize("onebatch/pam.pyx", annotate=False),
     install_requires=["numpy>=1.19.0", "Cython>=0.29.0", "scikit-learn>=1.2.0"],
     cmdclass={"build_ext": BuildExtInplace},
 )
