@@ -34,19 +34,19 @@ class OneBatchPAM:
         if X.dtype != np.float32:
             X = X.astype(np.float32)
         
-        if self.distance = "precomputed":
+        if self.distance == "precomputed":
             Dist = X
         else:
             if self.batch_size == "auto":
                 batch_size = int(100. * np.log(X.shape[0] * self.n_medoids))
             else:
                 batch_size = self.batch_size
-            if self.batch_size > X.shape[0]:
-                self.batch_size = X.shape[0]
+            if batch_size > X.shape[0]:
+                batch_size = X.shape[0]
             batch_indexes = np.random.choice(X.shape[0],
                                              batch_size,
                                              replace=False)
-            Dist = pairwise_distances(X, X[batch_indexes], metric=distance)   
+            Dist = pairwise_distances(X, X[batch_indexes], metric=self.distance)   
             np.divide(Dist, np.float32(Dist.max()), out=Dist, casting='same_kind')
 
         if self.weighting:
