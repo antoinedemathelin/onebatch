@@ -136,4 +136,11 @@ def swap_eager(float[:, ::1] Dist, int[::1] medoids_init, int K, int n_swap, int
                 break
     
     result_as_list = [m for m in medoids]
-    return result_as_list
+    nearest_as_list = [n for n in nearest]
+    dist_to_nearest = [d for d in min_Dist_to_med]
+    sol = {"medoids": result_as_list,
+           "nearest": nearest_as_list,
+           "dist_to_nearest": dist_to_nearest,
+           "loss": loss,
+           "steps": s}
+    return sol

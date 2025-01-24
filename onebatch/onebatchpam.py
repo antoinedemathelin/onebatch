@@ -23,7 +23,7 @@ class OneBatchPAM:
         self.tol = tol
 
 
-    def fit_medoids(self, X):
+    def fit(self, X):
         """
         Find the medoids.
         """
@@ -60,11 +60,27 @@ class OneBatchPAM:
         medoids_init = np.random.choice(X.shape[0], self.n_medoids, replace=False)
         medoids_init = np.array(medoids_init, dtype=np.dtype("i"))
         
-        self.medoids = swap_eager(Dist,
-                                  medoids_init,
-                                  self.n_medoids,
-                                  self.max_iter,
-                                  X.shape[0],
-                                  batch_size,
-                                  np.float32(self.tol))
-        return self.medoids
+        self.solution_ = swap_eager(Dist,
+                                    medoids_init,
+                                    self.n_medoids,
+                                    self.max_iter,
+                                    X.shape[0],
+                                    batch_size,
+                                    np.float32(self.tol))
+        self.medoid_indices_ = self.solution_["medoids"]
+        self.labels_ = self.solution_["nearest"]
+        self.inertia_ = self.solution_["loss"]
+        self.dist_to_nearest_medoid_ = self.solution_["dist_to_nearest"]
+        self.n_iter_ = self.solution_["steps"]
+        self.cluster_centers_ = X[self.medoid_indices_]
+        return self
+
+
+    def predict(self, X):
+        Dist = pairwise_distances(X, self.cluster_centers_, metric=self.distance)   
+        return Dist.argmin(1)
+
+
+    def fit_predict(self, X):
+        self.fit(X)
+        return self.medoid_indices_
