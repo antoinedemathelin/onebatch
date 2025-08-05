@@ -36,6 +36,7 @@ class OneBatchPAM:
         
         if self.distance == "precomputed":
             Dist = X
+            batch_size = X.shape[1]
         else:
             if self.batch_size == "auto":
                 batch_size = int(100. * np.log(X.shape[0] * self.n_medoids))
