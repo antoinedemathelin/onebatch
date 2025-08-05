@@ -1,5 +1,7 @@
 # OnebatchPAM
 
+Implementation of [OneBatchPAM: A Fast and Frugal K-Medoids Algorithm](https://arxiv.org/pdf/2501.19285) (AAAI 2025)
+
 ## Install the package:
 ```
 pip install git+https://github.com/antoinedemathelin/onebatch.git
