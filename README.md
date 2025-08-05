@@ -37,12 +37,12 @@ from onebatch import OneBatchPAM
 
 X = np.random.random((10000, 2))
 
-K = pairwise_distances(X, X[:1000], metric="l1")
+K = pairwise_distances(X, X[:1000], metric="l2")
 
 km = OneBatchPAM(
     n_medoids=9,
-    distance="euclidean",
-    batch_size="auto",
+    distance="precomputed",
+    batch_size=None,
     weighting=True,
     max_iter=100,
     tol=1e-6
