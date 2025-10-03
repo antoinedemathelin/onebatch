@@ -17,6 +17,16 @@ from sklearn.metrics import pairwise_distances
 from .pam import swap_eager
 
 
+def safe_ensure_c_contiguous_f32(arr, name="array"):
+    """Ensure array is C-contiguous float32"""
+    needs_copy = arr.dtype != np.float32 or not arr.flags['C_CONTIGUOUS']
+    
+    if needs_copy:
+        return np.ascontiguousarray(arr, dtype=np.float32)
+    else:
+        return arr
+
+
 class OneBatchPAM:
     """
     One-batch PAM (k-medoids) clustering with optional sample-weight reweighting.
@@ -121,6 +131,7 @@ class OneBatchPAM:
         distance="euclidean",
         batch_size="auto",
         weighting=True,
+        normalize=True,
         max_iter=100,
         tol=1e-6,
         n_jobs=None,
@@ -142,6 +153,9 @@ class OneBatchPAM:
         weighting : bool, default=True
             Whether to reweight columns by current cluster sizes during
             optimization.
+        normalize : bool, default=True
+            If True, normalize distances by dividing by the maximum value to ensure
+            values are in [0, 1] range for numerical stability.
         max_iter : int, default=100
             Maximum number of swap steps.
         tol : float, default=1e-6
@@ -157,6 +171,7 @@ class OneBatchPAM:
         self.distance = distance
         self.batch_size = batch_size
         self.weighting = weighting
+        self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
         self.n_jobs = n_jobs
@@ -192,18 +207,16 @@ class OneBatchPAM:
             raise ValueError("The number of medoids cannot"
                              " exceed the dataset size")
         
-        if X.dtype != np.float32:
-            X = X.astype(np.float32)
-        
         rng = np.random.default_rng(self.random_state)
         
         if self.distance == "precomputed":
-            Dist = X
+            Dist = safe_ensure_c_contiguous_f32(X)
             batch_size = X.shape[1]
+            if self.weighting or self.normalize:
+                Dist = Dist.copy()
         else:
             if self.batch_size == "auto":
-                # slightly larger batch for stability on small N; clamp to [min,N]
-                est = int(150. * np.log(max(2, X.shape[0] * max(1, self.n_medoids))))
+                est = int(100. * np.log(max(2, X.shape[0] * max(1, self.n_medoids))))
                 batch_size = min(max(est, self.n_medoids), X.shape[0])
             else:
                 batch_size = int(self.batch_size)
@@ -211,12 +224,14 @@ class OneBatchPAM:
                 batch_size = X.shape[0]
             batch_indexes = rng.choice(X.shape[0], batch_size, replace=False)
             Dist = pairwise_distances(X, X[batch_indexes], metric=self.distance, n_jobs=self.n_jobs)
+            Dist = safe_ensure_c_contiguous_f32(Dist)
+
+        if self.normalize:
             maxv = Dist.max()
             if maxv > 0:
-                np.divide(Dist, np.float32(maxv), out=Dist, casting='same_kind')
+                Dist /= np.float32(maxv)
 
         if self.weighting:
-            # compute argmin using current Dist columns only once
             assign = Dist.argmin(1)
             sample_weight = np.zeros(Dist.shape[1], dtype=np.float32)
             unique, counts = np.unique(assign, return_counts=True)
@@ -224,22 +239,41 @@ class OneBatchPAM:
             meanw = sample_weight.mean()
             if meanw > 0:
                 sample_weight /= meanw
-            np.multiply(Dist, sample_weight, out=Dist, casting='same_kind')
-
-        # Ensure C-contiguous float32 distances for Cython
-        Dist = np.ascontiguousarray(Dist, dtype=np.float32)
+            Dist *= sample_weight
 
         medoids_init = rng.choice(X.shape[0], self.n_medoids, replace=False)
         medoids_init = np.array(medoids_init, dtype=np.dtype("i"))
         
-        self.solution_ = swap_eager(Dist,
-                                    medoids_init,
-                                    self.n_medoids,
-                                    self.max_iter,
-                                    X.shape[0],
-                                    batch_size,
-                                    np.float32(self.tol),
-                                    0 if self.n_threads is None else int(self.n_threads))
+        if self.n_threads is None:        
+            self.solution_ = swap_eager(Dist,
+                                        medoids_init,
+                                        self.n_medoids,
+                                        self.max_iter,
+                                        X.shape[0],
+                                        batch_size,
+                                        np.float32(self.tol))
+        else:
+            try:
+                from .pam_openmp import swap_eager_openmp
+                
+                self.solution_ = swap_eager_openmp(Dist,
+                                            medoids_init,
+                                            self.n_medoids,
+                                            self.max_iter,
+                                            X.shape[0],
+                                            batch_size,
+                                            np.float32(self.tol),
+                                            int(self.n_threads))
+            except ImportError as e:
+                raise ImportError(
+                    f"Failed to import OpenMP version: {e}\n\n"
+                    "Multi-threaded OneBatchPAM requires OpenMP support.\n"
+                    "To enable multi-threading, reinstall with OpenMP support:\n"
+                    "  pip uninstall onebatch\n"
+                    "  pip install 'onebatch[openmp]'\n\n"
+                    "Alternatively, set n_threads=None to use single-threaded version."
+                ) from e
+                        
         self.medoid_indices_ = self.solution_["medoids"]
         self.labels_ = self.solution_["nearest"]
         self.inertia_ = self.solution_["loss"]
