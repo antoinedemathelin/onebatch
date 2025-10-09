@@ -1,3 +1,30 @@
 [build-system]
-requires = ["setuptools", "wheel", "Cython>=0.29"]
+requires = ["setuptools>=61.0", "wheel", "Cython>=0.29", "numpy"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "onebatch"
+version = "0.1.0"
+description = "OneBatchPAM"
+authors = [{name = "Antoine de Mathelin", email = "antoine.demat@gmail.com"}]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.19.0",
+    "Cython>=0.29.0", 
+    "scikit-learn>=1.2.0"
+]
+
+[project.optional-dependencies]
+openmp = []
+dev = ["pytest", "black", "flake8"]
+test = ["pytest", "pytest-cov"]
+
+[project.urls]
+Homepage = "https://github.com/your_username/your_repository"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+onebatch = ["*.pyx"]
