@@ -171,7 +171,7 @@ class OneBatchPAM:
         self.random_state = random_state
 
 
-    def fit(self, X):
+    def fit(self, X, sample_weight=None, frozen_medoids=None, Dist_init=None):
         """
         Find the medoids on the provided data.
 
@@ -198,9 +198,19 @@ class OneBatchPAM:
         if self.n_medoids > X.shape[0]:
             raise ValueError("The number of medoids cannot"
                              " exceed the dataset size")
-        
+
+        if frozen_medoids is not None and Dist_init is not None:
+            raise ValueError(
+                "Cannot specify both 'frozen_medoids' and 'Dist_init'."
+            )
+        if frozen_medoids is not None and self.distance == "precomputed":
+            raise ValueError(
+                "'frozen_medoids' is not supported with distance='precomputed'. "
+                "Use 'Dist_init' directly instead."
+            )
+
         rng = np.random.default_rng(self.random_state)
-        
+
         if self.distance == "precomputed":
             Dist = safe_ensure_c_contiguous_f32(X)
             batch_size = X.shape[1]
@@ -215,34 +225,76 @@ class OneBatchPAM:
             if batch_size > X.shape[0]:
                 batch_size = X.shape[0]
             batch_indexes = rng.choice(X.shape[0], batch_size, replace=False)
-            Dist = pairwise_distances(X, X[batch_indexes], metric=self.distance, n_jobs=self.n_jobs)
+            if callable(self.distance):
+                Dist = self.distance(X, X[batch_indexes], self.n_jobs)
+            else:
+                Dist = pairwise_distances(X, X[batch_indexes], metric=self.distance, n_jobs=self.n_jobs)
             Dist = safe_ensure_c_contiguous_f32(Dist)
+
+        frozen_mask = None
+        if frozen_medoids is not None:
+            frozen_medoids = np.asarray(frozen_medoids, dtype=np.float32)
+            if callable(self.distance):
+                frozen_dist_full = self.distance(
+                    X, frozen_medoids, self.n_jobs
+                )
+            else:
+                frozen_dist_full = pairwise_distances(
+                    X, frozen_medoids,
+                    metric=self.distance, n_jobs=self.n_jobs
+                )
+            frozen_dist_full = frozen_dist_full.min(axis=1)
+            Dist_init = frozen_dist_full[batch_indexes].astype(np.float32)
+            frozen_mask = frozen_dist_full > Dist.min(axis=1)
+
+        if Dist_init is not None:
+            Dist_init = np.asarray(Dist_init, dtype=np.float32)
 
         if self.normalize:
             maxv = Dist.max()
             if maxv > 0:
                 Dist /= np.float32(maxv)
+                if Dist_init is not None:
+                    Dist_init = Dist_init / np.float32(maxv)
 
         if self.weighting:
             assign = Dist.argmin(1)
-            sample_weight = np.zeros(Dist.shape[1], dtype=np.float32)
-            unique, counts = np.unique(assign, return_counts=True)
-            sample_weight[unique] = counts.astype(np.float32)
-            meanw = sample_weight.mean()
+            batch_weight = np.zeros(Dist.shape[1], dtype=np.float32)
+
+            w_assign = assign
+            w_sample_weight = sample_weight
+            if frozen_mask is not None:
+                w_assign = assign[frozen_mask]
+                if sample_weight is not None:
+                    w_sample_weight = sample_weight[frozen_mask]
+
+            if w_sample_weight is not None:
+                np.add.at(batch_weight, w_assign, w_sample_weight)
+            else:
+                unique, counts = np.unique(w_assign, return_counts=True)
+                batch_weight[unique] = counts.astype(np.float32)
+
+            meanw = batch_weight.mean()
             if meanw > 0:
-                sample_weight /= meanw
-            Dist *= sample_weight
+                batch_weight /= meanw
+            Dist *= batch_weight
+            if Dist_init is not None:
+                Dist_init = Dist_init * batch_weight
 
         medoids_init = rng.choice(X.shape[0], self.n_medoids, replace=False)
         medoids_init = np.array(medoids_init, dtype=np.dtype("i"))
-        
+
+        if Dist_init is not None:
+            Dist_init = np.ascontiguousarray(Dist_init, dtype=np.float32)
+
         self.solution_ = swap_eager(Dist,
                                     medoids_init,
                                     self.n_medoids,
                                     self.max_iter,
                                     X.shape[0],
                                     batch_size,
-                                    np.float32(self.tol))
+                                    np.float32(self.tol),
+                                    Dist_init)
                         
         self.medoid_indices_ = self.solution_["medoids"]
         self.labels_ = self.solution_["nearest"]
@@ -277,7 +329,10 @@ class OneBatchPAM:
         `labels_` obtained during `fit` or compute distances to the
         `cluster_centers_` externally and take argmin.
         """
-        Dist = pairwise_distances(X, self.cluster_centers_, metric=self.distance, n_jobs=self.n_jobs)
+        if callable(self.distance):
+            Dist = self.distance(X, self.cluster_centers_, self.n_jobs)
+        else:
+            Dist = pairwise_distances(X, self.cluster_centers_, metric=self.distance, n_jobs=self.n_jobs)
         return Dist.argmin(1)
 
 

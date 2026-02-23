@@ -113,3 +113,124 @@ class TestEdgeCases:
         model = OneBatchPAM(n_medoids=10, random_state=0)
         model.fit(X)
         assert len(model.medoid_indices_) == 10
+
+
+class TestSampleWeight:
+
+    def test_uniform_weight_matches_no_weight(self, random_data):
+        model1 = OneBatchPAM(n_medoids=5, random_state=42)
+        model1.fit(random_data)
+
+        uniform_w = np.ones(random_data.shape[0], dtype=np.float32)
+        model2 = OneBatchPAM(n_medoids=5, random_state=42)
+        model2.fit(random_data, sample_weight=uniform_w)
+
+        np.testing.assert_array_equal(model1.medoid_indices_, model2.medoid_indices_)
+
+    def test_sample_weight_changes_result(self, random_data):
+        rng = np.random.RandomState(99)
+        weights = rng.exponential(1.0, size=random_data.shape[0]).astype(np.float32)
+        model = OneBatchPAM(n_medoids=5, random_state=42)
+        model.fit(random_data, sample_weight=weights)
+        assert len(model.medoid_indices_) == 5
+
+    def test_sample_weight_ignored_when_no_weighting(self, random_data):
+        model1 = OneBatchPAM(n_medoids=5, weighting=False, random_state=42)
+        model1.fit(random_data)
+
+        weights = np.ones(random_data.shape[0], dtype=np.float32) * 5.0
+        model2 = OneBatchPAM(n_medoids=5, weighting=False, random_state=42)
+        model2.fit(random_data, sample_weight=weights)
+
+        np.testing.assert_array_equal(model1.medoid_indices_, model2.medoid_indices_)
+
+    def test_sample_weight_with_precomputed(self, random_data):
+        dist_matrix = pairwise_distances(random_data).astype(np.float32)
+        weights = np.ones(random_data.shape[0], dtype=np.float32)
+        model = OneBatchPAM(n_medoids=5, distance="precomputed", random_state=42)
+        model.fit(dist_matrix, sample_weight=weights)
+        assert len(model.medoid_indices_) == 5
+
+
+class TestDistInit:
+
+    def test_dist_init_large_no_effect(self, random_data):
+        model1 = OneBatchPAM(n_medoids=5, random_state=42, batch_size=50)
+        model1.fit(random_data)
+
+        dist_init = np.full(50, 1e6, dtype=np.float32)
+        model2 = OneBatchPAM(n_medoids=5, random_state=42, batch_size=50)
+        model2.fit(random_data, Dist_init=dist_init)
+
+        np.testing.assert_array_equal(model1.medoid_indices_, model2.medoid_indices_)
+
+    def test_dist_init_small_changes_result(self, random_data):
+        dist_init = np.full(50, 1e-6, dtype=np.float32)
+        model = OneBatchPAM(n_medoids=5, random_state=42, batch_size=50)
+        model.fit(random_data, Dist_init=dist_init)
+        assert len(model.medoid_indices_) == 5
+
+    def test_dist_init_precomputed(self, random_data):
+        dist_matrix = pairwise_distances(random_data).astype(np.float32)
+        batch_size = dist_matrix.shape[1]
+        dist_init = np.full(batch_size, 1e6, dtype=np.float32)
+        model = OneBatchPAM(n_medoids=5, distance="precomputed", random_state=42)
+        model.fit(dist_matrix, Dist_init=dist_init)
+        assert len(model.medoid_indices_) == 5
+
+
+class TestFrozenMedoids:
+
+    def test_frozen_medoids_basic(self, random_data):
+        frozen = random_data[:3]
+        model = OneBatchPAM(n_medoids=5, random_state=42)
+        model.fit(random_data, frozen_medoids=frozen)
+        assert len(model.medoid_indices_) == 5
+
+    def test_frozen_and_dist_init_raises(self, random_data):
+        frozen = random_data[:3]
+        dist_init = np.ones(50, dtype=np.float32)
+        model = OneBatchPAM(n_medoids=5, random_state=42, batch_size=50)
+        with pytest.raises(ValueError, match="Cannot specify both"):
+            model.fit(random_data, frozen_medoids=frozen, Dist_init=dist_init)
+
+    def test_frozen_with_precomputed_raises(self, random_data):
+        dist_matrix = pairwise_distances(random_data).astype(np.float32)
+        frozen = random_data[:3]
+        model = OneBatchPAM(n_medoids=5, distance="precomputed", random_state=42)
+        with pytest.raises(ValueError, match="not supported"):
+            model.fit(dist_matrix, frozen_medoids=frozen)
+
+
+class TestCallableDistance:
+
+    def test_callable_matches_string(self, random_data):
+        model1 = OneBatchPAM(n_medoids=5, distance="euclidean", random_state=42)
+        model1.fit(random_data)
+
+        def my_euclidean(X, Y, n_jobs):
+            return pairwise_distances(X, Y, metric="euclidean", n_jobs=n_jobs)
+
+        model2 = OneBatchPAM(n_medoids=5, distance=my_euclidean, random_state=42)
+        model2.fit(random_data)
+
+        np.testing.assert_array_equal(model1.medoid_indices_, model2.medoid_indices_)
+
+    def test_callable_predict(self, random_data):
+        def my_euclidean(X, Y, n_jobs):
+            return pairwise_distances(X, Y, metric="euclidean", n_jobs=n_jobs)
+
+        model = OneBatchPAM(n_medoids=5, distance=my_euclidean, random_state=42)
+        model.fit(random_data)
+        labels = model.predict(random_data)
+        assert labels.shape == (200,)
+        assert all(0 <= l < 5 for l in labels)
+
+    def test_callable_with_frozen(self, random_data):
+        def my_euclidean(X, Y, n_jobs):
+            return pairwise_distances(X, Y, metric="euclidean", n_jobs=n_jobs)
+
+        frozen = random_data[:3]
+        model = OneBatchPAM(n_medoids=5, distance=my_euclidean, random_state=42)
+        model.fit(random_data, frozen_medoids=frozen)
+        assert len(model.medoid_indices_) == 5
