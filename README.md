@@ -1,7 +1,6 @@
 # OneBatchPAM
 
 [![CI](https://github.com/antoinedemathelin/onebatch/actions/workflows/ci.yml/badge.svg)](https://github.com/antoinedemathelin/onebatch/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/antoinedemathelin/onebatch/branch/main/graph/badge.svg)](https://codecov.io/gh/antoinedemathelin/onebatch)
 [![Python 3.9-3.12](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/antoinedemathelin/onebatch)
 [![PyPI](https://img.shields.io/pypi/v/onebatch)](https://pypi.org/project/onebatch/)
 

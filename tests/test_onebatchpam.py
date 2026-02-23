@@ -114,6 +114,19 @@ class TestEdgeCases:
         model.fit(X)
         assert len(model.medoid_indices_) == 10
 
+    def test_batch_size_exceeds_n_samples(self):
+        X = np.random.RandomState(0).randn(10, 3).astype(np.float32)
+        model = OneBatchPAM(n_medoids=3, batch_size=100, random_state=0)
+        model.fit(X)
+        assert len(model.medoid_indices_) == 3
+
+    def test_float64_input_converted(self):
+        X = np.random.RandomState(0).randn(50, 3).astype(np.float64)
+        model = OneBatchPAM(n_medoids=3, distance="precomputed", random_state=0)
+        D = pairwise_distances(X).astype(np.float64)
+        model.fit(D)
+        assert len(model.medoid_indices_) == 3
+
 
 class TestSampleWeight:
 
@@ -185,6 +198,13 @@ class TestFrozenMedoids:
         frozen = random_data[:3]
         model = OneBatchPAM(n_medoids=5, random_state=42)
         model.fit(random_data, frozen_medoids=frozen)
+        assert len(model.medoid_indices_) == 5
+
+    def test_frozen_with_sample_weight(self, random_data):
+        frozen = random_data[:3]
+        weights = np.ones(random_data.shape[0], dtype=np.float32) * 2.0
+        model = OneBatchPAM(n_medoids=5, random_state=42)
+        model.fit(random_data, frozen_medoids=frozen, sample_weight=weights)
         assert len(model.medoid_indices_) == 5
 
     def test_frozen_and_dist_init_raises(self, random_data):
