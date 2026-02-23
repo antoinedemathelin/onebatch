@@ -3,12 +3,13 @@
 [![CI](https://github.com/antoinedemathelin/onebatch/actions/workflows/ci.yml/badge.svg)](https://github.com/antoinedemathelin/onebatch/actions/workflows/ci.yml)
 [![Python 3.9-3.12](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/antoinedemathelin/onebatch)
 [![PyPI](https://img.shields.io/pypi/v/onebatch)](https://pypi.org/project/onebatch/)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/antoinedemathelin/01dad95f50cdf5bf6b6f5da6865fc07e/raw/coverage.json)](https://github.com/antoinedemathelin/onebatch)
 
 Implementation of [OneBatchPAM: A Fast and Frugal K-Medoids Algorithm](https://arxiv.org/pdf/2501.19285) (AAAI 2025)
 
 ## Install the package:
 ```
-pip install git+https://github.com/antoinedemathelin/onebatch.git
+pip install onebatch
 ```
 
 ## Minimal examples

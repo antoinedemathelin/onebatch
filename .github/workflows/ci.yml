@@ -29,7 +29,7 @@ jobs:
           python -m pip install .[test]
 
       - name: Run tests
-        run: python -m pytest tests/ -v --cov=onebatch
+        run: python -m pytest tests/ -v --cov=onebatch --cov-report=json
 
       - name: Smoke test
         run: |
@@ -43,3 +43,18 @@ jobs:
           print('Inertia:', model.inertia_)
           print('Success!')
           "
+
+      - name: Update coverage badge
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          COV=$(python -c "import json; print(int(json.load(open('coverage.json'))['totals']['percent_covered_display']))")
+          if [ "$COV" -ge 90 ]; then COLOR="brightgreen"
+          elif [ "$COV" -ge 75 ]; then COLOR="green"
+          elif [ "$COV" -ge 60 ]; then COLOR="yellow"
+          else COLOR="red"; fi
+          echo "{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${COV}%\",\"color\":\"${COLOR}\"}" > badge.json
+          curl -s -X PATCH \
+            -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/gists/01dad95f50cdf5bf6b6f5da6865fc07e \
+            -d "{\"files\":{\"coverage.json\":{\"content\":$(python -c "import json; print(json.dumps(open('badge.json').read()))")}}}"
