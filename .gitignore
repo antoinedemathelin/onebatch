@@ -28,4 +28,6 @@ datasets/
 build
 *.c
 *.pyd
+.coverage
+coverage.json
 CLAUDE.md
