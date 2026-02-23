@@ -69,10 +69,12 @@ For visualization:
 ```python
 import matplotlib.pyplot as plt
 
-plt.plot(X[:, 0], X[:, 1], ".", alpha=0.3)
-plt.plot(X[medoids, 0], X[medoids, 1], "o", c="k")
+plt.scatter(X[:, 0], X[:, 1], c=labels, cmap="tab10", s=3, alpha=0.4)
+plt.plot(X[medoids, 0], X[medoids, 1], "ko", markersize=12, markeredgewidth=2, markerfacecolor="none")
 plt.show()
 ```
+
+![OneBatchPAM example](assets/example.png)
 
 ## API notes
 - **n_jobs**: number of parallel jobs for `sklearn.metrics.pairwise_distances`.
