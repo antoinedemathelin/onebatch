@@ -5,7 +5,7 @@ from cpython.array cimport array, clone
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def swap_eager(float[:, ::1] Dist, int[::1] medoids_init, int K, int n_swap, int N, int B, float tol_init):
+def swap_eager(float[:, ::1] Dist, int[::1] medoids_init, int K, int n_swap, int N, int B, float tol_init, float[::1] Dist_init=None):
     
     cdef array[float] templatef = array('f')
     cdef array[int] templatei = array('i')
@@ -25,6 +25,7 @@ def swap_eager(float[:, ::1] Dist, int[::1] medoids_init, int K, int n_swap, int
     cdef bint not_medoid_init = 1
     cdef bint not_medoid
     cdef bint finish = 0
+    cdef bint has_dist_init = Dist_init is not None
 
     cdef float[::1] min_Dist_to_med = clone(templatef, B, False)
     cdef float[::1] second_min_Dist_to_med = clone(templatef, B, False)
@@ -52,11 +53,17 @@ def swap_eager(float[:, ::1] Dist, int[::1] medoids_init, int K, int n_swap, int
                     else:
                         index2 = k
                         sec_dist = Dist[medoids[k], j]
+            if has_dist_init:
+                if first_dist > Dist_init[j]:
+                    sec_dist = Dist_init[j]
+                    first_dist = Dist_init[j]
+                elif sec_dist > Dist_init[j]:
+                    sec_dist = Dist_init[j]
             min_Dist_to_med[j] = first_dist
             second_min_Dist_to_med[j] = sec_dist
             nearest[j] = index1
             second[j] = index2
-        
+
         for j in range(B):
             k = nearest[j]
             swap_gains_K[k] += min_Dist_to_med[j] - second_min_Dist_to_med[j]
@@ -125,6 +132,12 @@ def swap_eager(float[:, ::1] Dist, int[::1] medoids_init, int K, int n_swap, int
                                         else:
                                             index2 = k
                                             sec_dist = Dist[medoids[k], j]
+                                if has_dist_init:
+                                    if first_dist > Dist_init[j]:
+                                        sec_dist = Dist_init[j]
+                                        first_dist = Dist_init[j]
+                                    elif sec_dist > Dist_init[j]:
+                                        sec_dist = Dist_init[j]
                                 min_Dist_to_med[j] = first_dist
                                 second_min_Dist_to_med[j] = sec_dist
                                 nearest[j] = index1
