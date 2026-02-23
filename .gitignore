@@ -28,3 +28,4 @@ datasets/
 build
 *.c
 *.pyd
+CLAUDE.md
