@@ -69,10 +69,6 @@ class OneBatchPAM:
         Random seed or Generator controlling the batch sampling and medoid
         initialization.
 
-    n_threads : int or None, default=None
-        Number of threads for the Cython-accelerated `swap_eager` kernel. If
-        None, it lets the kernel choose a default.
-
     Attributes
     ----------
     medoid_indices_ : ndarray of shape (n_medoids,), dtype=int
@@ -136,7 +132,6 @@ class OneBatchPAM:
         tol=1e-6,
         n_jobs=None,
         random_state=None,
-        n_threads=None,
     ):
         """
         Initialize the estimator with the given configuration.
@@ -164,8 +159,6 @@ class OneBatchPAM:
             Parallelism for `pairwise_distances`.
         random_state : int, numpy.random.Generator, or None, default=None
             Random seed or Generator controlling sampling and initialization.
-        n_threads : int or None, default=None
-            Threads for the Cython `swap_eager` kernel (None = library default).
         """
         self.n_medoids = n_medoids
         self.distance = distance
@@ -176,7 +169,6 @@ class OneBatchPAM:
         self.tol = tol
         self.n_jobs = n_jobs
         self.random_state = random_state
-        self.n_threads = n_threads
 
 
     def fit(self, X):
@@ -244,35 +236,13 @@ class OneBatchPAM:
         medoids_init = rng.choice(X.shape[0], self.n_medoids, replace=False)
         medoids_init = np.array(medoids_init, dtype=np.dtype("i"))
         
-        if self.n_threads is None:        
-            self.solution_ = swap_eager(Dist,
-                                        medoids_init,
-                                        self.n_medoids,
-                                        self.max_iter,
-                                        X.shape[0],
-                                        batch_size,
-                                        np.float32(self.tol))
-        else:
-            try:
-                from .pam_openmp import swap_eager_openmp
-                
-                self.solution_ = swap_eager_openmp(Dist,
-                                            medoids_init,
-                                            self.n_medoids,
-                                            self.max_iter,
-                                            X.shape[0],
-                                            batch_size,
-                                            np.float32(self.tol),
-                                            int(self.n_threads))
-            except ImportError as e:
-                raise ImportError(
-                    f"Failed to import OpenMP version: {e}\n\n"
-                    "Multi-threaded OneBatchPAM requires OpenMP support.\n"
-                    "To enable multi-threading, reinstall with OpenMP support:\n"
-                    "  pip uninstall onebatch\n"
-                    "  pip install 'onebatch[openmp]'\n\n"
-                    "Alternatively, set n_threads=None to use single-threaded version."
-                ) from e
+        self.solution_ = swap_eager(Dist,
+                                    medoids_init,
+                                    self.n_medoids,
+                                    self.max_iter,
+                                    X.shape[0],
+                                    batch_size,
+                                    np.float32(self.tol))
                         
         self.medoid_indices_ = self.solution_["medoids"]
         self.labels_ = self.solution_["nearest"]

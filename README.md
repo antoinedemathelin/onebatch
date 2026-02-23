@@ -26,7 +26,6 @@ km = OneBatchPAM(
     tol=1e-6,
     n_jobs=None,
     random_state=0,
-    n_threads=None,
 )
 
 # Option 1: fit + attributes
@@ -78,7 +77,6 @@ plt.show()
 ## API notes
 - **n_jobs**: number of parallel jobs for `sklearn.metrics.pairwise_distances`.
 - **random_state**: `int` or `numpy.random.Generator` controlling sampling and initialization.
-- **n_threads**: threads for the internal Cython kernel.
 - **fit_predict**: returns medoid indices (not labels). After `fit`, labels are in `labels_`.
 - **distance != 'precomputed'**: `batch_size` controls candidate columns; `'auto'` uses a heuristic.
 - **distance == 'precomputed'**: pass a distance matrix of shape `(n_samples, m)` where each column contains distances to a candidate point. `batch_size` is ignored in this mode.
